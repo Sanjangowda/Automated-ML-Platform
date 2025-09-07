@@ -21,50 +21,29 @@ import os
 import io
 
 def read_data(uploaded_file):
-    """
-    Reads datasets from the uploaded file via Streamlit.
-    Supports CSV, Excel, TSV, and JSON formats.
-    """
-    if uploaded_file is None:
-        raise ValueError("No file uploaded. Please upload a dataset.")
-
     try:
-        # Get file extension
         file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+
+        # Detect encoding
+        raw_data = uploaded_file.read()
+        uploaded_file.seek(0)  # Reset pointer for Pandas
+        encoding_result = chardet.detect(raw_data)
+        encoding = encoding_result["encoding"] if encoding_result["encoding"] else "utf-8"
 
         # Handle CSV files
         if file_ext == ".csv":
-            try:
-                df = pd.read_csv(uploaded_file, encoding="utf-8")
-            except UnicodeDecodeError:
-                uploaded_file.seek(0)  # Reset buffer position
-                raw_data = uploaded_file.read()
-                result = chardet.detect(raw_data)
-                encoding = result['encoding']
-                uploaded_file.seek(0)
-                try:
-                    df = pd.read_csv(io.BytesIO(raw_data), encoding=encoding)
-                except Exception:
-                    df = pd.read_csv(io.BytesIO(raw_data), encoding=encoding, on_bad_lines="skip")
-            except pd.errors.ParserError:
-                uploaded_file.seek(0)
-                df = pd.read_csv(uploaded_file, encoding="utf-8", on_bad_lines="skip")
-
-        # Handle Excel files (.xlsx and .xls)
+            df = pd.read_csv(uploaded_file, encoding=encoding)
+        
+        # Handle Excel files
         elif file_ext in [".xlsx", ".xls"]:
-            df = pd.read_excel(uploaded_file, engine="openpyxl")
+            try:
+                df = pd.read_excel(uploaded_file, engine="openpyxl")
+            except ImportError:
+                raise ImportError("Please install openpyxl: `pip install openpyxl`")
 
         # Handle TSV files
         elif file_ext == ".tsv":
-            try:
-                df = pd.read_csv(uploaded_file, sep="\t", encoding="utf-8")
-            except UnicodeDecodeError:
-                uploaded_file.seek(0)
-                raw_data = uploaded_file.read()
-                result = chardet.detect(raw_data)
-                encoding = result['encoding']
-                uploaded_file.seek(0)
-                df = pd.read_csv(io.BytesIO(raw_data), sep="\t", encoding=encoding, on_bad_lines="skip")
+            df = pd.read_csv(uploaded_file, sep="\t", encoding=encoding)
 
         # Handle JSON files
         elif file_ext == ".json":
@@ -73,10 +52,23 @@ def read_data(uploaded_file):
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
+        # Check if dataset is empty
+        if df.empty:
+            raise ValueError("The uploaded dataset is empty. Please upload a valid file.")
+
+        # If no headers, auto-generate them
+        if df.columns.tolist()[0] == 0 or df.columns.tolist()[0] == "Unnamed: 0":
+            df = pd.read_csv(uploaded_file, header=None)
+            df.columns = [f"Column_{i+1}" for i in range(df.shape[1])]
+
         return df
 
+    except pd.errors.EmptyDataError:
+        raise ValueError("The uploaded dataset is empty or corrupted.")
+    except pd.errors.ParserError:
+        raise ValueError("Could not parse the file. Please check the format.")
     except Exception as e:
-        raise RuntimeError(f"Failed to read dataset: {str(e)}")
+        raise RuntimeError(f"Failed to read dataset: {e}")
 
 
 # Step 2: Preprocess the data (Improved)
