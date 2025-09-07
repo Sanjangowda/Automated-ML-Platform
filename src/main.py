@@ -45,21 +45,27 @@ if uploaded_file is not None:
         }
 
         # Select model
-        model_name = st.selectbox("🤖 Select a Machine Learning model", list(models.keys()))
-        model = models[model_name]
+        selected_model_name = st.selectbox("🤖 Select a Machine Learning model", list(models.keys()))
+        model = models[selected_model_name]
+
+        # Custom name input for trained model
+        custom_model_name = st.text_input(
+            "📝 Enter a name for your trained model (optional)",
+            value=selected_model_name.replace(" ", "_")
+        )
 
         # Train & Evaluate Button
         if st.button("🚀 Train & Evaluate Model"):
             with st.spinner("Processing dataset and training model..."):
                 X_train, X_test, y_train, y_test = preprocess_data(df, target_column, scaler_type)
-                trained_model = train_model(X_train, y_train, model, model_name)
+                trained_model = train_model(X_train, y_train, model, custom_model_name)
                 accuracy = evaluate_model(trained_model, X_test, y_test)
 
             # Show training success message
-            st.success(f"✅ {model_name} trained successfully! Accuracy: **{accuracy * 100:.2f}%**")
+            st.success(f"✅ Model '{custom_model_name}' trained successfully! Accuracy: **{accuracy * 100:.2f}%**")
 
             # Path to trained model
-            model_path = os.path.join(trained_model_dir, f"{model_name}.pkl")
+            model_path = os.path.join(trained_model_dir, f"{custom_model_name}.pkl")
 
             # Check if the model exists before showing the button
             if os.path.exists(model_path):
@@ -67,7 +73,7 @@ if uploaded_file is not None:
                     st.download_button(
                         label="📥 Download Trained Model",
                         data=f,
-                        file_name=f"{model_name}.pkl",
+                        file_name=f"{custom_model_name}.pkl",
                         mime="application/octet-stream"
                     )
             else:
