@@ -18,59 +18,47 @@ parent_dir = os.path.dirname(working_dir)
 
 # Step 1: Read the data (Enhanced)
 import os
-import io
+from io import BytesIO
 
-def read_data(uploaded_file):
+
+def read_data(file):
+    # Detect file extension
+    file_ext = os.path.splitext(file.name)[1].lower()
+
     try:
-        file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+        # Read uploaded file bytes
+        raw_data = file.read()
+        file.seek(0)  # Reset pointer after reading
 
         # Detect encoding
-        raw_data = uploaded_file.read()
-        uploaded_file.seek(0)  # Reset pointer for Pandas
-        encoding_result = chardet.detect(raw_data)
-        encoding = encoding_result["encoding"] if encoding_result["encoding"] else "utf-8"
+        detected_encoding = chardet.detect(raw_data)["encoding"]
+        if detected_encoding is None:
+            detected_encoding = "utf-8"  # fallback
 
         # Handle CSV files
         if file_ext == ".csv":
-            df = pd.read_csv(uploaded_file, encoding=encoding)
-        
+            df = pd.read_csv(BytesIO(raw_data), encoding=detected_encoding, on_bad_lines="skip")
+
         # Handle Excel files
         elif file_ext in [".xlsx", ".xls"]:
-            try:
-                df = pd.read_excel(uploaded_file, engine="openpyxl")
-            except ImportError:
-                raise ImportError("Please install openpyxl: `pip install openpyxl`")
+            df = pd.read_excel(BytesIO(raw_data), engine="openpyxl")
 
         # Handle TSV files
         elif file_ext == ".tsv":
-            df = pd.read_csv(uploaded_file, sep="\t", encoding=encoding)
+            df = pd.read_csv(BytesIO(raw_data), sep="\t", encoding=detected_encoding, on_bad_lines="skip")
 
         # Handle JSON files
         elif file_ext == ".json":
-            df = pd.read_json(uploaded_file)
+            df = pd.read_json(BytesIO(raw_data))
 
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
-        # Check if dataset is empty
-        if df.empty:
-            raise ValueError("The uploaded dataset is empty. Please upload a valid file.")
-
-        # If no headers, auto-generate them
-        if df.columns.tolist()[0] == 0 or df.columns.tolist()[0] == "Unnamed: 0":
-            df = pd.read_csv(uploaded_file, header=None)
-            df.columns = [f"Column_{i+1}" for i in range(df.shape[1])]
-
         return df
 
-    except pd.errors.EmptyDataError:
-        raise ValueError("The uploaded dataset is empty or corrupted.")
-    except pd.errors.ParserError:
-        raise ValueError("Could not parse the file. Please check the format.")
     except Exception as e:
-        raise RuntimeError(f"Failed to read dataset: {e}")
-
-
+        raise RuntimeError(f"Failed to read dataset: {str(e)}")
+    
 # Step 2: Preprocess the data (Improved)
 def preprocess_data(df, target_column, scaler_type):
     """
