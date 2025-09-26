@@ -71,7 +71,7 @@ if not st.session_state.user:
 
     with tab1:
         st.subheader("Login to your account")
-        email = st.text_input("📧 Email", key="login_email")
+        email = st.text_input(" Email", key="login_email")
         password = st.text_input("🔒 Password", type="password", key="login_password")
         if st.button("Login"):
             user = login_user(email, password)
@@ -190,7 +190,7 @@ else:
 
             # Predictions
             with tab3:
-                st.subheader("📥 Make Predictions (Coming Soon 🚧)")
+                st.subheader("Make Predictions (Coming Soon 🚧)")
                 st.info("Future enhancement: Allow users to upload new data and get predictions.")
 
             #  Download Models
