@@ -84,7 +84,7 @@ if not st.session_state.user:
 
     with tab2:
         st.subheader("Create a new account")
-        email = st.text_input("📧 Email", key="signup_email")
+        email = st.text_input(" Email", key="signup_email")
         password = st.text_input("🔒 Password", type="password", key="signup_password")
         if st.button("Sign Up"):
             user = signup_user(email, password)
@@ -98,7 +98,7 @@ else:
     # Sidebar (only essentials)
    
     st.sidebar.success(f"👤 Logged in as {st.session_state.user['email']}")
-    uploaded_file = st.sidebar.file_uploader("📂 Upload your dataset", type=["csv", "xlsx", "xls", "tsv", "json"])
+    uploaded_file = st.sidebar.file_uploader("📁 Upload your dataset", type=["csv", "xlsx", "xls", "tsv", "json"])
     if st.sidebar.button("Logout"):
         st.session_state.user = None
         st.rerun()
@@ -111,8 +111,8 @@ else:
         "👤 Profile Dashboard",
         "📊 EDA",
         "⚙️ Train Model",
-        "📥 Predictions",
-        "💾 Download Models"
+        "💡 Predictions",
+        "📥 Download Models"
     ])
 
     # Profile Dashboard 
@@ -120,7 +120,7 @@ else:
         st.header("👤 Profile Dashboard")
         st.write(f"**Email:** {st.session_state.user['email']}")
 
-        st.markdown("### 📂 Uploaded Datasets")
+        st.markdown("### 📑 Uploaded Datasets")
         if st.session_state.datasets:
             st.table(pd.DataFrame(st.session_state.datasets, columns=["Dataset Name"]))
         else:
@@ -164,7 +164,7 @@ else:
                     "XGBoost": XGBClassifier()
                 }
                 model_name = st.selectbox("🤖 Choose Model", list(models.keys()))
-                trained_model_name = st.text_input("💾 Name for trained model", "my_model")
+                trained_model_name = st.text_input("📝 Name for trained model", "my_model")
 
                 if st.button("🚀 Train & Evaluate"):
                     with st.spinner("🔄 Processing dataset..."):
@@ -195,10 +195,10 @@ else:
 
             #  Download Models
             with tab4:
-                st.subheader("💾 Download Trained Models")
+                st.subheader("📥 Download Trained Models")
                 if "last_model_file" in st.session_state:
                     st.download_button(
-                        "📥 Download Latest Model",
+                        "⬇️ Download Latest Model",
                         data=open(st.session_state["last_model_file"], "rb").read(),
                         file_name=st.session_state["last_model_file"],
                         mime="application/octet-stream"
@@ -208,4 +208,4 @@ else:
         except Exception as e:
             st.error(f"⚠️ Error: {str(e)}")
     else:
-        st.info("👆 Upload a dataset from the sidebar to begin.")
+        st.info("👈 Upload a dataset from the sidebar to begin.")
