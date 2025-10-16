@@ -8,57 +8,112 @@ from xgboost import XGBClassifier
 import pickle
 import pandas as pd
 
-
+# -----------------------------
 # Page Config
-
+# -----------------------------
 st.set_page_config(page_title="AutoML Platform", page_icon="🤖", layout="wide")
 
-
+# -----------------------------
 # Custom CSS
-
-st.markdown(
-    """
+# -----------------------------
+st.markdown("""
     <style>
-        .block-container {
-            padding-top: 1.5rem;
-            padding-bottom: 2rem;
-            max-width: 1400px;
-        }
-        h1, h2, h3 {
-            font-family: 'Segoe UI', sans-serif;
-            font-weight: 600;
-        }
-        .stButton>button {
-            border-radius: 10px;
-            background-color: #4CAF50;
-            color: white;
-            font-weight: 600;
-            padding: 0.6rem 1.2rem;
-        }
-        .stButton>button:hover {
-            background-color: #45a049;
-        }
-        .stDownloadButton>button {
-            border-radius: 10px;
-            background-color: #1E90FF;
-            color: white;
-            font-weight: 600;
-            padding: 0.6rem 1.2rem;
-        }
-        .stDownloadButton>button:hover {
-            background-color: #1C86EE;
-        }
-        .stSelectbox label, .stRadio label {
-            font-weight: 600 !important;
-        }
+    /* Background Gradient */
+    body {
+        background: linear-gradient(135deg, #141e30, #243b55);
+        font-family: 'Poppins', sans-serif;
+        color: #fff;
+    }
+
+    /* Center login card */
+  
+    
+
+    }
+
+    .login-card:hover {
+        transform: scale(1.02);
+    }
+
+    .login-card img {
+        margin-bottom: 15px;
+        border-radius: 50%;
+        background: #ffffff20;
+        padding: 10px;
+    }
+
+    .login-card h2 {
+        color: #fff;
+        font-weight: 600;
+        margin-bottom: 25px;
+        letter-spacing: 0.5px;
+    }
+
+    .stTextInput>div>div>input {
+        background-color: rgba(25, 31, 52, 0.1);
+        color: white;
+        border-radius: 10px;
+        height: 45px;
+        border: none;
+        padding-left: 15px;
+        font-size: 15px;
+    }
+
+    .stTextInput>div>div>input::placeholder {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .stButton>button {
+        width: 100%;
+        background: linear-gradient(90deg, #00c6ff, #0072ff);
+        color: white;
+        border-radius: 12px;
+        padding: 10px 30px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        margin-top: 20px;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .stButton>button:hover {
+        transform: scale(1.03);
+        background: linear-gradient(90deg, #0072ff, #00c6ff);
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        justify-content: center;
+        gap: 20px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: #253342;
+        font-weight: 500;
+        padding: 10px 25px;
+        transition: all 0.3s;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(90deg, #00c6ff, #0072ff);
+        color: #fff;
+        font-weight: 600;
+    }
+
+    /* General titles */
+    h1, h2, h3, h4 {
+        font-family: 'Poppins', sans-serif;
+        color: #fff;
+    }
+
     </style>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
-
+# -----------------------------
 # Authentication
-
+# -----------------------------
 if "user" not in st.session_state:
     st.session_state.user = None
 if "datasets" not in st.session_state:
@@ -69,11 +124,16 @@ if "models" not in st.session_state:
 if not st.session_state.user:
     tab1, tab2 = st.tabs(["🔑 Login", "🆕 Sign Up"])
 
+    # ----------------- Login Page -----------------
     with tab1:
-        st.subheader("Login to your account")
-        email = st.text_input(" Email", key="login_email")
-        password = st.text_input("🔒 Password", type="password", key="login_password")
-        if st.button("Login"):
+        st.markdown('<div class="login-container"><div class="login-card">', unsafe_allow_html=True)
+        st.image("https://cdn-icons-png.flaticon.com/512/847/847969.png", width=80)
+        st.markdown("<h2>Welcome Back 👋</h2>", unsafe_allow_html=True)
+
+        email = st.text_input("📧 Email ID", key="login_email", placeholder="Enter your email")
+        password = st.text_input("🔒 Password", type="password", key="login_password", placeholder="Enter your password")
+
+        if st.button("LOGIN"):
             user = login_user(email, password)
             if isinstance(user, dict) and "idToken" in user:
                 st.session_state.user = {"email": user["email"], "idToken": user["idToken"]}
@@ -82,45 +142,54 @@ if not st.session_state.user:
             else:
                 st.error(f"⚠️ {user}")
 
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
+    # ----------------- Sign Up Page -----------------
     with tab2:
-        st.subheader("Create a new account")
-        email = st.text_input(" Email", key="signup_email")
-        password = st.text_input("🔒 Password", type="password", key="signup_password")
-        if st.button("Sign Up"):
+        st.markdown('<div class="login-container"><div class="login-card">', unsafe_allow_html=True)
+        st.image("https://cdn-icons-png.flaticon.com/512/1828/1828469.png", width=80)
+        st.markdown("<h2>Create Account ✨</h2>", unsafe_allow_html=True)
+
+        email = st.text_input("📧 Email ID", key="signup_email", placeholder="Enter your email")
+        password = st.text_input("🔒 Password", type="password", key="signup_password", placeholder="Create a password")
+
+        if st.button("SIGN UP"):
             user = signup_user(email, password)
             if isinstance(user, dict) and "idToken" in user:
                 st.success("✅ Account created successfully! Please login.")
             else:
                 st.error(f"⚠️ {user}")
 
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
 else:
- 
+    # -----------------------------
     # Sidebar (only essentials)
-   
+    # -----------------------------
     st.sidebar.success(f"👤 Logged in as {st.session_state.user['email']}")
-    uploaded_file = st.sidebar.file_uploader("📁 Upload your dataset", type=["csv", "xlsx", "xls", "tsv", "json"])
+    uploaded_file = st.sidebar.file_uploader("📂 Upload your dataset", type=["csv", "xlsx", "xls", "tsv", "json"])
     if st.sidebar.button("Logout"):
         st.session_state.user = None
         st.rerun()
 
-  
+    # -----------------------------
     # Dashboard Tabs
-
+    # -----------------------------
     st.title("🤖 AutoML Platform")
     tab_profile, tab1, tab2, tab3, tab4 = st.tabs([
         "👤 Profile Dashboard",
         "📊 EDA",
         "⚙️ Train Model",
-        "💡 Predictions",
-        "📥 Download Models"
+        "📥 Predictions",
+        "💾 Download Models"
     ])
 
-    # Profile Dashboard 
+    # ---------------- Profile Dashboard ----------------
     with tab_profile:
         st.header("👤 Profile Dashboard")
         st.write(f"**Email:** {st.session_state.user['email']}")
 
-        st.markdown("### 📑 Uploaded Datasets")
+        st.markdown("### 📂 Uploaded Datasets")
         if st.session_state.datasets:
             st.table(pd.DataFrame(st.session_state.datasets, columns=["Dataset Name"]))
         else:
@@ -132,16 +201,14 @@ else:
         else:
             st.info("No models trained yet.")
 
-    # Dataset Required Tabs 
+    # ---------------- Dataset Required Tabs ----------------
     if uploaded_file:
         try:
             df = read_data(uploaded_file)
-
-            # Track dataset
             if uploaded_file.name not in st.session_state.datasets:
                 st.session_state.datasets.append(uploaded_file.name)
 
-            # EDA 
+            # ---------------- EDA ----------------
             with tab1:
                 st.subheader("📊 Exploratory Data Analysis")
                 st.write("**Dataset Shape:**", df.shape)
@@ -150,7 +217,7 @@ else:
                 st.write("**Summary Statistics:**")
                 st.write(df.describe(include="all"))
 
-            # Training Model 
+            # ---------------- Train Model ----------------
             with tab2:
                 st.subheader("⚙️ Train a Machine Learning Model")
 
@@ -164,7 +231,7 @@ else:
                     "XGBoost": XGBClassifier()
                 }
                 model_name = st.selectbox("🤖 Choose Model", list(models.keys()))
-                trained_model_name = st.text_input("📝 Name for trained model", "my_model")
+                trained_model_name = st.text_input("💾 Name for trained model", "my_model")
 
                 if st.button("🚀 Train & Evaluate"):
                     with st.spinner("🔄 Processing dataset..."):
@@ -174,13 +241,11 @@ else:
 
                     st.success(f"✅ {model_name} trained successfully! Accuracy: **{accuracy * 100:.2f}%**")
 
-                    # Save model
                     model_file = f"{trained_model_name}.pkl"
                     with open(model_file, "wb") as f:
                         pickle.dump(trained_model, f)
                     st.session_state["last_model_file"] = model_file
 
-                    # Track trained model
                     st.session_state.models.append({
                         "name": trained_model_name,
                         "type": model_name,
@@ -188,17 +253,17 @@ else:
                         "file": model_file
                     })
 
-            # Predictions
+            # ---------------- Predictions ----------------
             with tab3:
-                st.subheader("Make Predictions (Coming Soon 🚧)")
-                st.info("Future enhancement: Allow users to upload new data and get predictions.")
+                st.subheader("📥 Make Predictions (Coming Soon 🚧)")
+                st.info("Future scope: Allow users to upload new data and get predictions.")
 
-            #  Download Models
+            # ---------------- Download Models ----------------
             with tab4:
-                st.subheader("📥 Download Trained Models")
+                st.subheader("💾 Download Trained Models")
                 if "last_model_file" in st.session_state:
                     st.download_button(
-                        "⬇️ Download Latest Model",
+                        "📥 Download Latest Model",
                         data=open(st.session_state["last_model_file"], "rb").read(),
                         file_name=st.session_state["last_model_file"],
                         mime="application/octet-stream"
