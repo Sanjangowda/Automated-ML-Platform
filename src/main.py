@@ -7,6 +7,8 @@ from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 import pickle
 import pandas as pd
+import io
+import csv
 
 # -----------------------------
 # Page Config
@@ -18,37 +20,18 @@ st.set_page_config(page_title="AutoML Platform", page_icon="🤖", layout="wide"
 # -----------------------------
 st.markdown("""
     <style>
-    /* Background Gradient */
     body {
         background: linear-gradient(135deg, #141e30, #243b55);
         font-family: 'Poppins', sans-serif;
         color: #fff;
     }
-
-    /* Center login card */
-  
-    
-
-    }
-
-    .login-card:hover {
-        transform: scale(1.02);
-    }
-
+    .login-card:hover { transform: scale(1.02); }
     .login-card img {
         margin-bottom: 15px;
         border-radius: 50%;
         background: #ffffff20;
         padding: 10px;
     }
-
-    .login-card h2 {
-        color: #fff;
-        font-weight: 600;
-        margin-bottom: 25px;
-        letter-spacing: 0.5px;
-    }
-
     .stTextInput>div>div>input {
         background-color: rgba(25, 31, 52, 0.1);
         color: white;
@@ -58,11 +41,9 @@ st.markdown("""
         padding-left: 15px;
         font-size: 15px;
     }
-
     .stTextInput>div>div>input::placeholder {
         color: rgba(255, 255, 255, 0.7);
     }
-
     .stButton>button {
         width: 100%;
         background: linear-gradient(90deg, #00c6ff, #0072ff);
@@ -75,18 +56,14 @@ st.markdown("""
         border: none;
         transition: all 0.3s ease;
     }
-
     .stButton>button:hover {
         transform: scale(1.03);
         background: linear-gradient(90deg, #0072ff, #00c6ff);
     }
-
-    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
         justify-content: center;
         gap: 20px;
     }
-
     .stTabs [data-baseweb="tab"] {
         background: rgba(255, 255, 255, 0.1);
         border-radius: 8px;
@@ -95,19 +72,11 @@ st.markdown("""
         padding: 10px 25px;
         transition: all 0.3s;
     }
-
     .stTabs [aria-selected="true"] {
         background: linear-gradient(90deg, #00c6ff, #0072ff);
         color: #fff;
         font-weight: 600;
     }
-
-    /* General titles */
-    h1, h2, h3, h4 {
-        font-family: 'Poppins', sans-serif;
-        color: #fff;
-    }
-
     </style>
 """, unsafe_allow_html=True)
 
@@ -124,12 +93,10 @@ if "models" not in st.session_state:
 if not st.session_state.user:
     tab1, tab2 = st.tabs(["🔑 Login", "🆕 Sign Up"])
 
-    # ----------------- Login Page -----------------
+    # ----------------- Login -----------------
     with tab1:
-        st.markdown('<div class="login-container"><div class="login-card">', unsafe_allow_html=True)
         st.image("https://cdn-icons-png.flaticon.com/512/847/847969.png", width=80)
         st.markdown("<h2>Welcome Back 👋</h2>", unsafe_allow_html=True)
-
         email = st.text_input("📧 Email ID", key="login_email", placeholder="Enter your email")
         password = st.text_input("🔒 Password", type="password", key="login_password", placeholder="Enter your password")
 
@@ -142,14 +109,10 @@ if not st.session_state.user:
             else:
                 st.error(f"⚠️ {user}")
 
-        st.markdown("</div></div>", unsafe_allow_html=True)
-
-    # ----------------- Sign Up Page -----------------
+    # ----------------- Signup -----------------
     with tab2:
-        st.markdown('<div class="login-container"><div class="login-card">', unsafe_allow_html=True)
         st.image("https://cdn-icons-png.flaticon.com/512/1828/1828469.png", width=80)
         st.markdown("<h2>Create Account ✨</h2>", unsafe_allow_html=True)
-
         email = st.text_input("📧 Email ID", key="signup_email", placeholder="Enter your email")
         password = st.text_input("🔒 Password", type="password", key="signup_password", placeholder="Create a password")
 
@@ -160,11 +123,9 @@ if not st.session_state.user:
             else:
                 st.error(f"⚠️ {user}")
 
-        st.markdown("</div></div>", unsafe_allow_html=True)
-
 else:
     # -----------------------------
-    # Sidebar (only essentials)
+    # Sidebar
     # -----------------------------
     st.sidebar.success(f"👤 Logged in as {st.session_state.user['email']}")
     uploaded_file = st.sidebar.file_uploader("📂 Upload your dataset", type=["csv", "xlsx", "xls", "tsv", "json"])
@@ -173,7 +134,7 @@ else:
         st.rerun()
 
     # -----------------------------
-    # Dashboard Tabs
+    # Tabs
     # -----------------------------
     st.title("🤖 AutoML Platform")
     tab_profile, tab1, tab2, tab3, tab4 = st.tabs([
@@ -188,27 +149,25 @@ else:
     with tab_profile:
         st.header("👤 Profile Dashboard")
         st.write(f"**Email:** {st.session_state.user['email']}")
-
         st.markdown("### 📂 Uploaded Datasets")
         if st.session_state.datasets:
             st.table(pd.DataFrame(st.session_state.datasets, columns=["Dataset Name"]))
         else:
             st.info("No datasets uploaded yet.")
-
         st.markdown("### 🤖 Trained Models")
         if st.session_state.models:
             st.table(pd.DataFrame(st.session_state.models))
         else:
             st.info("No models trained yet.")
 
-    # ---------------- Dataset Required Tabs ----------------
+    # ---------------- Dataset Tabs ----------------
     if uploaded_file:
         try:
             df = read_data(uploaded_file)
             if uploaded_file.name not in st.session_state.datasets:
                 st.session_state.datasets.append(uploaded_file.name)
 
-            # ---------------- EDA ----------------
+            # --------------- EDA ----------------
             with tab1:
                 st.subheader("📊 Exploratory Data Analysis")
                 st.write("**Dataset Shape:**", df.shape)
@@ -217,12 +176,11 @@ else:
                 st.write("**Summary Statistics:**")
                 st.write(df.describe(include="all"))
 
-            # ---------------- Train Model ----------------
+            # --------------- Train ----------------
             with tab2:
                 st.subheader("⚙️ Train a Machine Learning Model")
-
-                target_column = st.selectbox("🎯 Select the target column", df.columns)
-                scaler_type = st.radio("⚖️ Feature scaling method", ["standard", "minmax"], horizontal=True)
+                target_column = st.selectbox("🎯 Select target column", df.columns)
+                scaler_type = st.radio("⚖️ Scaling", ["standard", "minmax"], horizontal=True)
 
                 models = {
                     "Logistic Regression": LogisticRegression(),
@@ -230,16 +188,17 @@ else:
                     "Random Forest": RandomForestClassifier(),
                     "XGBoost": XGBClassifier()
                 }
+
                 model_name = st.selectbox("🤖 Choose Model", list(models.keys()))
                 trained_model_name = st.text_input("💾 Name for trained model", "my_model")
 
                 if st.button("🚀 Train & Evaluate"):
-                    with st.spinner("🔄 Processing dataset..."):
+                    with st.spinner("🔄 Processing..."):
                         X_train, X_test, y_train, y_test = preprocess_data(df, target_column, scaler_type)
                         trained_model = train_model(X_train, y_train, models[model_name], trained_model_name)
                         accuracy = evaluate_model(trained_model, X_test, y_test)
 
-                    st.success(f"✅ {model_name} trained successfully! Accuracy: **{accuracy * 100:.2f}%**")
+                    st.success(f"✅ {model_name} trained! Accuracy: **{accuracy * 100:.2f}%**")
 
                     model_file = f"{trained_model_name}.pkl"
                     with open(model_file, "wb") as f:
@@ -253,12 +212,93 @@ else:
                         "file": model_file
                     })
 
-            # ---------------- Predictions ----------------
+            # --------------- Predictions ----------------
             with tab3:
-                st.subheader("📥 Make Predictions (Coming Soon 🚧)")
-                st.info("Future scope: Allow users to upload new data and get predictions.")
+                st.subheader("📥 Predictions using Saved Test Dataset")
 
-            # ---------------- Download Models ----------------
+                import os
+
+                test_data_path = os.path.join("test_dataset", "test_data.csv")
+
+                if not os.path.exists(test_data_path):
+                    st.warning("⚠️ Please train a model first to generate a test dataset.")
+                elif not st.session_state.models:
+                    st.warning("⚠️ No trained models found. Train one to continue.")
+                else:
+                    # Select trained model
+                    model_choice = st.selectbox(
+                        "🤖 Select a trained model",
+                        [m["name"] for m in st.session_state.models]
+                    )
+                    selected_model_info = next((m for m in st.session_state.models if m["name"] == model_choice), None)
+                    model_file = selected_model_info["file"]
+
+                    # Load test dataset
+                    try:
+                        df_test = pd.read_csv(test_data_path)
+                        st.success("✅ Test dataset loaded successfully!")
+                        st.write("### Test Dataset Preview")
+                        st.dataframe(df_test.head())
+
+                        # Get target column (last column)
+                        target_col = df_test.columns[-1]
+                        X_test = df_test.drop(columns=[target_col])
+                        y_test = df_test[target_col]
+
+                        if st.button("🔮 Run Predictions"):
+                            with st.spinner("Generating predictions..."):
+                                # Load trained model
+                                with open(model_file, "rb") as f:
+                                    model = pickle.load(f)
+
+                                # Predict
+                                preds = model.predict(X_test)
+
+                                # Create result DataFrame
+                                result_df = pd.DataFrame({
+                                    "Actual": y_test,
+                                    "Predicted": preds
+                                })
+                                result_df["Status"] = result_df.apply(
+                                    lambda row: "✅ Correct" if row["Actual"] == row["Predicted"] else "❌ Incorrect",
+                                    axis=1
+                                )
+
+                                # Apply color highlighting
+                                def highlight_rows(row):
+                                    color = "background-color: #d1f7c4;" if row["Status"] == "✅ Correct" else "background-color: #f8d7da;"
+                                    return [color] * len(row)
+
+                                styled_df = result_df.style.apply(highlight_rows, axis=1)
+
+                                st.success(f"✅ Predictions completed using **{model_choice}**!")
+                                st.write("### 🎯 Prediction Results")
+                                st.dataframe(styled_df, use_container_width=True)
+
+                                # Evaluation metrics
+                                try:
+                                    from sklearn.metrics import accuracy_score, mean_absolute_error
+                                    if y_test.dtypes == "int" or y_test.dtypes == "float":
+                                        acc = accuracy_score(y_test, preds)
+                                        mae = mean_absolute_error(y_test, preds)
+                                        st.markdown(f"**📊 Accuracy:** `{acc * 100:.2f}%`")
+                                        st.markdown(f"**📉 Mean Absolute Error:** `{mae:.4f}`")
+                                except Exception:
+                                    pass
+
+                                # Download results
+                                csv = result_df.to_csv(index=False).encode('utf-8')
+                                st.download_button(
+                                    label="📥 Download Predictions",
+                                    data=csv,
+                                    file_name="predictions.csv",
+                                    mime="text/csv"
+                                )
+
+                    except Exception as e:
+                        st.error(f"⚠️ Error loading or predicting: {str(e)}")
+
+            # --------------- Download ----------------
             with tab4:
                 st.subheader("💾 Download Trained Models")
                 if "last_model_file" in st.session_state:
@@ -270,6 +310,7 @@ else:
                     )
                 else:
                     st.info("No model trained yet.")
+
         except Exception as e:
             st.error(f"⚠️ Error: {str(e)}")
     else:
