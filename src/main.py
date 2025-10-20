@@ -10,14 +10,11 @@ import pandas as pd
 import io
 import csv
 
-# -----------------------------
-# Page Config
-# -----------------------------
+# ---------------------Page Config----------------------
 st.set_page_config(page_title="AutoML Platform", page_icon="🤖", layout="wide")
 
-# -----------------------------
-# Custom CSS
-# -----------------------------
+
+#-----------------------Custom CSS----------------
 st.markdown("""
     <style>
     body {
@@ -80,9 +77,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
-# Authentication
-# -----------------------------
+
+# -----------------------------Authentication-----------------------------
 if "user" not in st.session_state:
     st.session_state.user = None
 if "datasets" not in st.session_state:
@@ -124,18 +120,16 @@ if not st.session_state.user:
                 st.error(f"⚠️ {user}")
 
 else:
-    # -----------------------------
-    # Sidebar
-    # -----------------------------
+
+    # -----------------------------Sidebar-----------------------------
     st.sidebar.success(f"👤 Logged in as {st.session_state.user['email']}")
     uploaded_file = st.sidebar.file_uploader("📂 Upload your dataset", type=["csv", "xlsx", "xls", "tsv", "json"])
     if st.sidebar.button("Logout"):
         st.session_state.user = None
         st.rerun()
 
-    # -----------------------------
-    # Tabs
-    # -----------------------------
+
+    # ---------------------Tabs-----------------------------
     st.title("🤖 AutoML Platform")
     tab_profile, tab1, tab2, tab3, tab4 = st.tabs([
         "👤 Profile Dashboard",
