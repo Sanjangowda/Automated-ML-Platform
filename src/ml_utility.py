@@ -64,6 +64,7 @@ def preprocess_data(df, target_column, scaler_type):
     """
     Preprocesses the dataset:
     - Handles missing values
+    - Converts datetime columns into numerical parts
     - Scales numeric features
     - One-hot encodes categorical features
     - Ensures unseen categories in test data won't cause errors
@@ -72,6 +73,29 @@ def preprocess_data(df, target_column, scaler_type):
     # Split features and target
     X = df.drop(columns=[target_column])
     y = df[target_column]
+
+    # --- Handle datetime columns ---
+    datetime_cols = X.select_dtypes(include=['datetime64[ns]', 'datetime64']).columns
+    for col in datetime_cols:
+        X[col + "_year"] = X[col].dt.year
+        X[col + "_month"] = X[col].dt.month
+        X[col + "_day"] = X[col].dt.day
+        X[col + "_dayofweek"] = X[col].dt.dayofweek
+        X = X.drop(columns=[col])
+
+    # --- Detect string-based date columns (e.g. "2023-10-14") ---
+    for col in X.columns:
+        if X[col].dtype == 'object':
+            try:
+                parsed = pd.to_datetime(X[col], errors='raise')
+                # If conversion successful, extract parts
+                X[col + "_year"] = parsed.dt.year
+                X[col + "_month"] = parsed.dt.month
+                X[col + "_day"] = parsed.dt.day
+                X[col + "_dayofweek"] = parsed.dt.dayofweek
+                X = X.drop(columns=[col])
+            except Exception:
+                pass  # Not a date-like column → keep it as categorical
 
     # Identify column types
     numerical_cols = X.select_dtypes(include=['number']).columns
@@ -106,8 +130,9 @@ def preprocess_data(df, target_column, scaler_type):
         cat_imputer = SimpleImputer(strategy='most_frequent')
         X_train[categorical_cols] = cat_imputer.fit_transform(X_train[categorical_cols])
         X_test[categorical_cols] = cat_imputer.transform(X_test[categorical_cols])
+
         # One-hot encoding (ignore unseen categories)
-        encoder = OneHotEncoder(handle_unknown='ignore', sparse_output =False)
+        encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
         X_train_encoded = encoder.fit_transform(X_train[categorical_cols])
         X_test_encoded = encoder.transform(X_test[categorical_cols])
 
@@ -133,7 +158,14 @@ def preprocess_data(df, target_column, scaler_type):
     else:
         encoder = None
 
+    # ✅ Save test dataset for prediction tab
+    test_data_path = os.path.join(parent_dir, "test_dataset", "test_data.csv")
+    test_data = pd.concat([X_test, y_test], axis=1)
+    test_data.to_csv(test_data_path, index=False)
+
+
     return X_train, X_test, y_train, y_test
+
 
 
 # Step 3: Train the model
