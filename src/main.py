@@ -196,9 +196,15 @@ else:
                     with st.spinner("🔄 Processing..."):
                         X_train, X_test, y_train, y_test = preprocess_data(df, target_column, scaler_type)
                         trained_model = train_model(X_train, y_train, models[model_name], trained_model_name)
-                        accuracy = evaluate_model(trained_model, X_test, y_test)
+                        accuracy, results, insight_text, chart_buf = evaluate_model(trained_model, X_test, y_test)
 
-                    st.success(f"✅ {model_name} trained! Accuracy: **{accuracy * 100:.2f}%**")
+                    st.success(f"✅ {model_name} trained successfully!")
+                    st.metric("🎯 Model Accuracy", f"{accuracy:.2f}%")
+                    st.markdown("### 📊 Business Insights")
+                    st.markdown(insight_text)
+                    st.markdown("### 📈 Visualization: Predicted vs Actual Demand")
+                    st.image(chart_buf, use_column_width=True)
+
 
                     model_file = f"{trained_model_name}.pkl"
                     with open(model_file, "wb") as f:
@@ -283,6 +289,37 @@ else:
                                         mae = mean_absolute_error(y_test, preds)
                                         st.markdown(f"**📊 Accuracy:** `{acc * 100:.2f}%`")
                                         st.markdown(f"**📉 Mean Absolute Error:** `{mae:.4f}`")
+                                        
+                                        from ml_utility import generate_report
+                                        # -----------------------------
+                                        # Professional Header Tagline
+                                        # -----------------------------
+                                        st.markdown("""
+                                            <div style="background-color:#0073e6; padding:10px; border-radius:10px; margin-bottom:20px; text-align:center;">
+                                                <h3 style="color:white; margin:0;">⚙️ Empowering Businesses with Automated Machine Learning ⚙️</h3>
+                                            </div>
+                                        """, unsafe_allow_html=True)
+
+
+                                        # -----------------------------
+                                        # Report Download Section
+                                        # -----------------------------
+                                        st.markdown("### 📄 Export Report")
+                                        if st.button("Download AutoML Report as PDF"):
+                                            insights_text = (
+                                                "High-demand items help maximize profits by stocking more frequently.\n"
+                                                "Medium-demand items perform steadily; maintain balanced inventory.\n"
+                                                "Low-demand items contribute less; consider discounts or replacements."
+                                            )
+                                            report_path = generate_report(accuracy * 100, insights_text, model_name)
+                                            with open(report_path, "rb") as f:
+                                                st.download_button(
+                                                    label="⬇️ Click to Download Report",
+                                                    data=f,
+                                                    file_name=os.path.basename(report_path),
+                                                    mime="application/pdf"
+                                                )
+
                                 except Exception:
                                     pass
 
