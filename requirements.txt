@@ -1,0 +1,8 @@
+streamlit
+scikit-learn
+pandas
+chardet
+csv
+os
+xgboost
+pickle
