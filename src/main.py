@@ -3,7 +3,7 @@ from firebase_auth import signup_user, login_user
 from ml_utility import read_data, preprocess_data, train_model, evaluate_model
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from xgboost import XGBClassifier
 import pickle
 import pandas as pd
@@ -137,11 +137,11 @@ else:
     # Tabs
     # -----------------------------
     st.title("🤖 AutoML Platform")
-    tab_profile, tab1, tab2, tab3, tab4 = st.tabs([
+    tab_profile, tab1, tab2, tab4 = st.tabs([
         "👤 Profile Dashboard",
         "📊 EDA",
         "⚙️ Train Model",
-        "📥 Predictions",
+        #"📥 Predictions",
         "💾 Download Models"
     ])
 
@@ -185,6 +185,7 @@ else:
                 models = {
                     "Logistic Regression": LogisticRegression(),
                     "Support Vector Machine": SVC(),
+                    "Random Forest Regressor": RandomForestRegressor,
                     "Random Forest": RandomForestClassifier(),
                     "XGBoost": XGBClassifier()
                 }
@@ -203,7 +204,7 @@ else:
                     st.markdown("### 📊 Business Insights")
                     st.markdown(insight_text)
                     st.markdown("### 📈 Visualization: Predicted vs Actual Demand")
-                    st.image(chart_buf, use_column_width=True)
+                    st.image(chart_buf, use_container_width=True)
 
 
                     model_file = f"{trained_model_name}.pkl"
@@ -214,126 +215,12 @@ else:
                     st.session_state.models.append({
                         "name": trained_model_name,
                         "type": model_name,
-                        "accuracy": f"{accuracy*100:.2f}%",
+                        "accuracy": f"{accuracy:.2f}%",
                         "file": model_file
                     })
 
             # --------------- Predictions ----------------
-            with tab3:
-                st.subheader("📥 Predictions using Saved Test Dataset")
-
-                import os
-
-                test_data_path = os.path.join("test_dataset", "test_data.csv")
-
-                if not os.path.exists(test_data_path):
-                    st.warning("⚠️ Please train a model first to generate a test dataset.")
-                elif not st.session_state.models:
-                    st.warning("⚠️ No trained models found. Train one to continue.")
-                else:
-                    # Select trained model
-                    model_choice = st.selectbox(
-                        "🤖 Select a trained model",
-                        [m["name"] for m in st.session_state.models]
-                    )
-                    selected_model_info = next((m for m in st.session_state.models if m["name"] == model_choice), None)
-                    model_file = selected_model_info["file"]
-
-                    # Load test dataset
-                    try:
-                        df_test = pd.read_csv(test_data_path)
-                        st.success("✅ Test dataset loaded successfully!")
-                        st.write("### Test Dataset Preview")
-                        st.dataframe(df_test.head())
-
-                        # Get target column (last column)
-                        target_col = df_test.columns[-1]
-                        X_test = df_test.drop(columns=[target_col])
-                        y_test = df_test[target_col]
-
-                        if st.button("🔮 Run Predictions"):
-                            with st.spinner("Generating predictions..."):
-                                # Load trained model
-                                with open(model_file, "rb") as f:
-                                    model = pickle.load(f)
-
-                                # Predict
-                                preds = model.predict(X_test)
-
-                                # Create result DataFrame
-                                result_df = pd.DataFrame({
-                                    "Actual": y_test,
-                                    "Predicted": preds
-                                })
-                                result_df["Status"] = result_df.apply(
-                                    lambda row: "✅ Correct" if row["Actual"] == row["Predicted"] else "❌ Incorrect",
-                                    axis=1
-                                )
-
-                                # Apply color highlighting
-                                def highlight_rows(row):
-                                    color = "background-color: #d1f7c4;" if row["Status"] == "✅ Correct" else "background-color: #f8d7da;"
-                                    return [color] * len(row)
-
-                                styled_df = result_df.style.apply(highlight_rows, axis=1)
-
-                                st.success(f"✅ Predictions completed using **{model_choice}**!")
-                                st.write("### 🎯 Prediction Results")
-                                st.dataframe(styled_df, use_container_width=True)
-
-                                # Evaluation metrics
-                                try:
-                                    from sklearn.metrics import accuracy_score, mean_absolute_error
-                                    if y_test.dtypes == "int" or y_test.dtypes == "float":
-                                        acc = accuracy_score(y_test, preds)
-                                        mae = mean_absolute_error(y_test, preds)
-                                        st.markdown(f"**📊 Accuracy:** `{acc * 100:.2f}%`")
-                                        st.markdown(f"**📉 Mean Absolute Error:** `{mae:.4f}`")
-                                        
-                                        from ml_utility import generate_report
-                                        # -----------------------------
-                                        # Professional Header Tagline
-                                        # -----------------------------
-                                        st.markdown("""
-                                            <div style="background-color:#0073e6; padding:10px; border-radius:10px; margin-bottom:20px; text-align:center;">
-                                                <h3 style="color:white; margin:0;">⚙️ Empowering Businesses with Automated Machine Learning ⚙️</h3>
-                                            </div>
-                                        """, unsafe_allow_html=True)
-
-
-                                        # -----------------------------
-                                        # Report Download Section
-                                        # -----------------------------
-                                        st.markdown("### 📄 Export Report")
-                                        if st.button("Download AutoML Report as PDF"):
-                                            insights_text = (
-                                                "High-demand items help maximize profits by stocking more frequently.\n"
-                                                "Medium-demand items perform steadily; maintain balanced inventory.\n"
-                                                "Low-demand items contribute less; consider discounts or replacements."
-                                            )
-                                            report_path = generate_report(accuracy * 100, insights_text, model_name)
-                                            with open(report_path, "rb") as f:
-                                                st.download_button(
-                                                    label="⬇️ Click to Download Report",
-                                                    data=f,
-                                                    file_name=os.path.basename(report_path),
-                                                    mime="application/pdf"
-                                                )
-
-                                except Exception:
-                                    pass
-
-                                # Download results
-                                csv = result_df.to_csv(index=False).encode('utf-8')
-                                st.download_button(
-                                    label="📥 Download Predictions",
-                                    data=csv,
-                                    file_name="predictions.csv",
-                                    mime="text/csv"
-                                )
-
-                    except Exception as e:
-                        st.error(f"⚠️ Error loading or predicting: {str(e)}")
+           
 
             # --------------- Download ----------------
             with tab4:
