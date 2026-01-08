@@ -5,222 +5,234 @@ import chardet
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import (
+    accuracy_score,
+    mean_absolute_error,
+    mean_squared_error,
+    r2_score
+)
+from io import BytesIO
+import io
+import matplotlib.pyplot as plt
 
-# Get the working directory of the main.py file
+# ---------------------------
+# Directory Setup
+# ---------------------------
 working_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(working_dir)
 
-
-# Step 1: Read the data (Enhanced)
-import os
-from io import BytesIO
-
-
+# ---------------------------
+# Read Data
+# ---------------------------
 def read_data(file):
-    # Detect file extension
     file_ext = os.path.splitext(file.name)[1].lower()
+    raw_data = file.read()
+    file.seek(0)
 
-    try:
-        # Read uploaded file bytes
-        raw_data = file.read()
-        file.seek(0)  # Reset pointer after reading
+    detected_encoding = chardet.detect(raw_data)["encoding"] or "utf-8"
 
-        # Detect encoding
-        detected_encoding = chardet.detect(raw_data)["encoding"]
-        if detected_encoding is None:
-            detected_encoding = "utf-8"  # fallback
+    if file_ext == ".csv":
+        return pd.read_csv(BytesIO(raw_data), encoding=detected_encoding, on_bad_lines="skip")
+    elif file_ext in [".xlsx", ".xls"]:
+        return pd.read_excel(BytesIO(raw_data), engine="openpyxl")
+    elif file_ext == ".tsv":
+        return pd.read_csv(BytesIO(raw_data), sep="\t", encoding=detected_encoding, on_bad_lines="skip")
+    elif file_ext == ".json":
+        return pd.read_json(BytesIO(raw_data))
+    else:
+        raise ValueError(f"Unsupported file format: {file_ext}")
 
-        # Handle CSV files
-        if file_ext == ".csv":
-            df = pd.read_csv(BytesIO(raw_data), encoding=detected_encoding, on_bad_lines="skip")
+# ---------------------------
+# Detect Problem Type
+# ---------------------------
+def detect_problem_type(y):
+    if pd.api.types.is_numeric_dtype(y) and y.nunique() > 10:
+        return "regression"
+    return "classification"
 
-        # Handle Excel files
-        elif file_ext in [".xlsx", ".xls"]:
-            df = pd.read_excel(BytesIO(raw_data), engine="openpyxl")
+# ---------------------------
+# Auto Model Selection
+# ---------------------------
+def auto_select_model(y):
+    problem_type = detect_problem_type(y)
 
-        # Handle TSV files
-        elif file_ext == ".tsv":
-            df = pd.read_csv(BytesIO(raw_data), sep="\t", encoding=detected_encoding, on_bad_lines="skip")
+    if problem_type == "regression":
+        return (
+            RandomForestRegressor(n_estimators=200, random_state=42),
+            "random_forest_regressor",
+            problem_type
+        )
 
-        # Handle JSON files
-        elif file_ext == ".json":
-            df = pd.read_json(BytesIO(raw_data))
+    return (
+        RandomForestClassifier(n_estimators=200, random_state=42),
+        "random_forest_classifier",
+        problem_type
+    )
 
-        else:
-            raise ValueError(f"Unsupported file format: {file_ext}")
-
-        return df
-
-    except Exception as e:
-        raise RuntimeError(f"Failed to read dataset: {str(e)}")
-    
-# Step 2: Preprocess the data (Improved)
+# ---------------------------
+# Preprocess Data
+# ---------------------------
 def preprocess_data(df, target_column, scaler_type):
-    """
-    Preprocesses the dataset:
-    - Handles missing values
-    - Converts datetime columns into numerical parts
-    - Scales numeric features
-    - One-hot encodes categorical features
-    - Ensures unseen categories in test data won't cause errors
-    """
-
-    # Split features and target
     X = df.drop(columns=[target_column])
     y = df[target_column]
 
-    # --- Handle datetime columns ---
-    datetime_cols = X.select_dtypes(include=['datetime64[ns]', 'datetime64']).columns
-    for col in datetime_cols:
+    # Handle datetime columns
+    for col in X.select_dtypes(include=["datetime64[ns]"]).columns:
         X[col + "_year"] = X[col].dt.year
         X[col + "_month"] = X[col].dt.month
         X[col + "_day"] = X[col].dt.day
-        X[col + "_dayofweek"] = X[col].dt.dayofweek
         X = X.drop(columns=[col])
 
-    # --- Detect string-based date columns (e.g. "2023-10-14") ---
-    for col in X.columns:
-        if X[col].dtype == 'object':
-            try:
-                parsed = pd.to_datetime(X[col], errors='raise')
-                # If conversion successful, extract parts
-                X[col + "_year"] = parsed.dt.year
-                X[col + "_month"] = parsed.dt.month
-                X[col + "_day"] = parsed.dt.day
-                X[col + "_dayofweek"] = parsed.dt.dayofweek
-                X = X.drop(columns=[col])
-            except Exception:
-                pass  # Not a date-like column → keep it as categorical
+    numerical_cols = X.select_dtypes(include=["number"]).columns
+    categorical_cols = X.select_dtypes(include=["object", "category"]).columns
 
-    # Identify column types
-    numerical_cols = X.select_dtypes(include=['number']).columns
-    categorical_cols = X.select_dtypes(include=['object', 'category']).columns
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
-    # Split into train/test sets first
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # Handle numerical columns
+    # Numerical
     if len(numerical_cols) > 0:
-        num_imputer = SimpleImputer(strategy='mean')
-        X_train[numerical_cols] = num_imputer.fit_transform(X_train[numerical_cols])
-        X_test[numerical_cols] = num_imputer.transform(X_test[numerical_cols])
+        imputer = SimpleImputer(strategy="mean")
+        X_train[numerical_cols] = imputer.fit_transform(X_train[numerical_cols])
+        X_test[numerical_cols] = imputer.transform(X_test[numerical_cols])
 
-        # Scaling
-        if scaler_type == 'standard':
-            scaler = StandardScaler()
-        else:
-            scaler = MinMaxScaler()
-
+        scaler = StandardScaler() if scaler_type == "standard" else MinMaxScaler()
         X_train[numerical_cols] = scaler.fit_transform(X_train[numerical_cols])
         X_test[numerical_cols] = scaler.transform(X_test[numerical_cols])
 
-        # Save scaler for future predictions
-        with open(f"{parent_dir}/trained_model/scaler.pkl", "wb") as f:
-            pickle.dump(scaler, f)
-    else:
-        scaler = None
+        pickle.dump(scaler, open(f"{parent_dir}/trained_model/scaler.pkl", "wb"))
 
-    # Handle categorical columns
+    # Categorical
     if len(categorical_cols) > 0:
-        cat_imputer = SimpleImputer(strategy='most_frequent')
-        X_train[categorical_cols] = cat_imputer.fit_transform(X_train[categorical_cols])
-        X_test[categorical_cols] = cat_imputer.transform(X_test[categorical_cols])
+        imputer = SimpleImputer(strategy="most_frequent")
+        X_train[categorical_cols] = imputer.fit_transform(X_train[categorical_cols])
+        X_test[categorical_cols] = imputer.transform(X_test[categorical_cols])
 
-        # One-hot encoding (ignore unseen categories)
-        encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-        X_train_encoded = encoder.fit_transform(X_train[categorical_cols])
-        X_test_encoded = encoder.transform(X_test[categorical_cols])
+        encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+        X_train_enc = encoder.fit_transform(X_train[categorical_cols])
+        X_test_enc = encoder.transform(X_test[categorical_cols])
 
-        # Convert encoded arrays to DataFrames
-        X_train_encoded = pd.DataFrame(
-            X_train_encoded,
-            columns=encoder.get_feature_names_out(categorical_cols),
-            index=X_train.index
+        X_train = pd.concat(
+            [X_train.drop(columns=categorical_cols),
+             pd.DataFrame(X_train_enc, columns=encoder.get_feature_names_out())],
+            axis=1
         )
-        X_test_encoded = pd.DataFrame(
-            X_test_encoded,
-            columns=encoder.get_feature_names_out(categorical_cols),
-            index=X_test.index
+        X_test = pd.concat(
+            [X_test.drop(columns=categorical_cols),
+             pd.DataFrame(X_test_enc, columns=encoder.get_feature_names_out())],
+            axis=1
         )
 
-        # Merge back
-        X_train = pd.concat([X_train.drop(columns=categorical_cols), X_train_encoded], axis=1)
-        X_test = pd.concat([X_test.drop(columns=categorical_cols), X_test_encoded], axis=1)
-
-        # Save encoder for predictions
-        with open(f"{parent_dir}/trained_model/encoder.pkl", "wb") as f:
-            pickle.dump(encoder, f)
-    else:
-        encoder = None
-
-    # ✅ Save test dataset for prediction tab
-    test_data_path = os.path.join(parent_dir, "test_dataset", "test_data.csv")
-    test_data = pd.concat([X_test, y_test], axis=1)
-    test_data.to_csv(test_data_path, index=False)
-
+        pickle.dump(encoder, open(f"{parent_dir}/trained_model/encoder.pkl", "wb"))
 
     return X_train, X_test, y_train, y_test
 
+# ---------------------------
+# Train Model
+# ---------------------------
+def train_model(X_train, y_train, model=None, model_name=None):
+    # 🔐 FORCE correct model based on target type
+    problem_type = detect_problem_type(y_train)
 
+    if problem_type == "regression":
+        model = RandomForestRegressor(
+            n_estimators=200,
+            random_state=42
+        )
+        model_name = model_name or "random_forest_regressor"
 
-# Step 3: Train the model
-def train_model(X_train, y_train, model, model_name):
-    """
-    Trains the model and saves it for future use.
-    """
+    else:
+        model = RandomForestClassifier(
+            n_estimators=200,
+            random_state=42
+        )
+        model_name = model_name or "random_forest_classifier"
+
+    # ✅ ALIGN + NaN SAFETY
+    X_train = X_train.loc[y_train.index].fillna(0)
+
     model.fit(X_train, y_train)
-    with open(f"{parent_dir}/trained_model/{model_name}.pkl", 'wb') as file:
-        pickle.dump(model, file)
+
+    with open(f"{parent_dir}/trained_model/{model_name}.pkl", "wb") as f:
+        pickle.dump(model, f)
+
     return model
 
-
-# Step 4: Evaluate the model
+# ---------------------------
+# Evaluate Model
+# ---------------------------
 def evaluate_model(model, X_test, y_test):
-    """
-    Evaluates the trained model and returns accuracy.
-    """
+    X_test = X_test.loc[y_test.index].fillna(0)
     y_pred = model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    return round(accuracy, 2)
+    problem_type = detect_problem_type(y_test)
+
+    # -------- Regression --------
+    if problem_type == "regression":
+        mae = mean_absolute_error(y_test, y_pred)
+        mse = mean_squared_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+
+        results = pd.DataFrame({"Actual": y_test, "Predicted": y_pred})
+
+        fig, ax = plt.subplots()
+        ax.scatter(y_test, y_pred)
+        ax.set_xlabel("Actual")
+        ax.set_ylabel("Predicted")
+        ax.set_title("Actual vs Predicted")
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png")
+        buf.seek(0)
+        plt.close()
+
+        insight = f"MAE: {mae:.2f}, MSE: {mse:.2f}, R²: {r2:.2f}"
+
+        return round(r2 * 100, 2), results, insight, buf
 
 
-# Step 5: Predict on new data using saved encoder & scaler
+    # -------- Classification --------
+    acc = accuracy_score(y_test, y_pred)
+
+    results = pd.DataFrame({
+        "Actual": y_test.astype(str),
+        "Predicted": y_pred.astype(str)
+    })
+
+    dist = results["Predicted"].value_counts(normalize=True) * 100
+
+    fig, ax = plt.subplots()
+    dist.plot(kind="bar", ax=ax)
+    ax.set_ylabel("Percentage (%)")
+    ax.set_title("Prediction Distribution")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    plt.close()
+
+    return round(acc * 100, 2), results, dist.to_dict(), buf
+
+# ---------------------------
+# Predict New Data
+# ---------------------------
 def predict_new_data(model_name, new_df):
-    """
-    Predicts using a saved model and encoder.
-    Ensures that preprocessing during prediction matches training.
-    """
-    # Load trained model
-    with open(f"{parent_dir}/trained_model/{model_name}.pkl", 'rb') as file:
-        model = pickle.load(file)
+    model = pickle.load(open(f"{parent_dir}/trained_model/{model_name}.pkl", "rb"))
 
-    # Load saved encoder and scaler if they exist
-    encoder_path = f"{parent_dir}/trained_model/encoder.pkl"
-    scaler_path = f"{parent_dir}/trained_model/scaler.pkl"
+    if os.path.exists(f"{parent_dir}/trained_model/scaler.pkl"):
+        scaler = pickle.load(open(f"{parent_dir}/trained_model/scaler.pkl", "rb"))
+        num_cols = new_df.select_dtypes(include=["number"]).columns
+        new_df[num_cols] = scaler.transform(new_df[num_cols])
 
-    encoder = pickle.load(open(encoder_path, 'rb')) if os.path.exists(encoder_path) else None
-    scaler = pickle.load(open(scaler_path, 'rb')) if os.path.exists(scaler_path) else None
-
-    # Handle numerical scaling
-    numerical_cols = new_df.select_dtypes(include=['number']).columns
-    if scaler and len(numerical_cols) > 0:
-        new_df[numerical_cols] = scaler.transform(new_df[numerical_cols])
-
-    # Handle categorical encoding
-    categorical_cols = new_df.select_dtypes(include=['object', 'category']).columns
-    if encoder and len(categorical_cols) > 0:
-        new_encoded = encoder.transform(new_df[categorical_cols])
-        new_encoded_df = pd.DataFrame(
-            new_encoded,
-            columns=encoder.get_feature_names_out(categorical_cols),
-            index=new_df.index
+    if os.path.exists(f"{parent_dir}/trained_model/encoder.pkl"):
+        encoder = pickle.load(open(f"{parent_dir}/trained_model/encoder.pkl", "rb"))
+        cat_cols = new_df.select_dtypes(include=["object", "category"]).columns
+        encoded = encoder.transform(new_df[cat_cols])
+        new_df = pd.concat(
+            [new_df.drop(columns=cat_cols),
+             pd.DataFrame(encoded, columns=encoder.get_feature_names_out())],
+            axis=1
         )
-        new_df = pd.concat([new_df.drop(columns=categorical_cols), new_encoded_df], axis=1)
 
-    # Make prediction
+    new_df = new_df.fillna(0)
     return model.predict(new_df)
