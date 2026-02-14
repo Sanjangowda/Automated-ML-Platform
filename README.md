@@ -17,11 +17,11 @@ After uploading the dataset you can do EDA (Exploratory Data Analysis) in first 
 Finally you can download the trained model as .pkl format and can be deployed anywhere.
 
 To run this on your local system install the following dependencies:
-streamlit
-scikit-learn
-pandas
-chardet
-csv
-os
-xgboost
-pickle
+streamlit, 
+scikit-learn, 
+pandas, 
+chardet, 
+csv, 
+os, 
+xgboost, 
+pickle 
